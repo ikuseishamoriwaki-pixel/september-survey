@@ -612,6 +612,11 @@ textarea {
     padding: 10px 8px 28px;
   }
 
+  body[data-page="admin"] .app {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
   .hero {
     padding: 16px 4px 12px;
   }
@@ -627,6 +632,11 @@ textarea {
   .panel {
     padding: 14px 12px;
     border-radius: 8px;
+  }
+
+  body[data-page="admin"] .panel {
+    padding-left: 4px;
+    padding-right: 4px;
   }
 
   .panel-title h2 {
@@ -707,6 +717,75 @@ textarea {
 
   .result-table-wrap {
     overflow-x: auto;
+  }
+
+  .matrix-table {
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .student-matrix {
+    min-width: 460px;
+  }
+
+  .teacher-matrix {
+    min-width: 390px;
+  }
+
+  .matrix-table th,
+  .matrix-table td {
+    padding: 4px 1px;
+    white-space: nowrap;
+  }
+
+  .student-matrix th:first-child,
+  .student-matrix td:first-child,
+  .teacher-matrix th:first-child,
+  .teacher-matrix td:first-child {
+    width: 36px;
+  }
+
+  .student-matrix th:nth-child(2),
+  .student-matrix td:nth-child(2),
+  .teacher-matrix th:nth-child(2),
+  .teacher-matrix td:nth-child(2) {
+    width: 44px;
+  }
+
+  .student-matrix th:nth-child(3),
+  .student-matrix td:nth-child(3) {
+    width: 24px;
+  }
+
+  .student-matrix th:last-child,
+  .student-matrix td:last-child,
+  .teacher-matrix th:last-child,
+  .teacher-matrix td:last-child {
+    width: 26px;
+  }
+
+  .student-matrix th:nth-last-child(2),
+  .student-matrix td:nth-last-child(2),
+  .teacher-matrix th:nth-last-child(2),
+  .teacher-matrix td:nth-last-child(2) {
+    width: 28px;
+  }
+
+  .matrix-table td:first-child,
+  .matrix-table td:nth-child(2),
+  .matrix-table td:nth-last-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .matrix-table .mark {
+    font-size: 14px;
+  }
+
+  .danger-small {
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 10px;
   }
 }
 
