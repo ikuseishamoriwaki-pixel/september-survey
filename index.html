@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>9月通常授業アンケート</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <p>進学塾SOIL 出町校</p>
+      <h1>9月通常授業アンケート</h1>
+      <span id="pageLead">来られる曜日・時間を選んで送信してください。</span>
+    </header>
+
+    <nav id="tabs" class="tabs" aria-label="入力切り替え">
+      <a class="tab" data-page-link="student" href="./student.html">生徒用</a>
+      <a class="tab" data-page-link="teacher" href="./teacher.html">講師用</a>
+      <a class="tab" data-page-link="admin" href="./admin.html">管理用</a>
+    </nav>
+
+    <section id="studentView" class="panel view">
+      <div class="panel-title">
+        <h2>生徒用</h2>
+        <p>9月からの通常授業日時を決めるため、来れる日時をタップして提出をお願いします。期限は8/16（日）までです。もし期限内の提出が厳しければお知らせください。</p>
+      </div>
+
+      <form id="studentForm" class="form">
+        <div class="student-select-row">
+          <label>
+            学年
+            <select id="studentGrade" name="grade" required>
+              <option value="">未選択</option>
+            </select>
+          </label>
+
+          <label>
+            生徒名
+            <select id="studentName" name="name" required disabled>
+              <option value="">未選択</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-card">
+          <div class="grid-label">通塾可能な日時</div>
+          <div id="studentGrid" class="slot-grid student-grid"></div>
+        </div>
+
+        <label>
+          補足
+          <textarea id="studentMemo" rows="3" placeholder="備考欄"></textarea>
+        </label>
+
+        <button class="primary" type="submit">生徒回答を送信</button>
+      </form>
+    </section>
+
+    <section id="teacherView" class="panel view">
+      <div class="panel-title">
+        <h2>講師用</h2>
+        <p>9月からの勤務日時を決めるため、来れる日時をタップして提出をお願いします。期限は8/16（日）までです。もし期限内の提出が厳しければお知らせください。</p>
+      </div>
+
+      <form id="teacherForm" class="form">
+        <label>
+          講師名
+          <select id="teacherName" name="name" required>
+            <option value="">未選択</option>
+          </select>
+        </label>
+
+        <div class="grid-card">
+          <div class="grid-label">勤務可能な曜日</div>
+          <div id="teacherGrid" class="teacher-days"></div>
+        </div>
+
+        <label>
+          補足
+          <textarea id="teacherMemo" rows="3" placeholder="勤務に関する補足があれば入力してください。"></textarea>
+        </label>
+
+        <button class="primary" type="submit">講師回答を送信</button>
+      </form>
+    </section>
+
+    <section id="adminView" class="panel view">
+      <div class="panel-title">
+        <h2>管理用</h2>
+        <p>生徒・講師の名前を登録し、回答結果を確認します。</p>
+      </div>
+
+      <div class="admin-link-card">
+        <div>
+          <h3>回答画面</h3>
+          <p>管理画面から、生徒用・講師用の入力画面を確認できます。</p>
+        </div>
+        <div class="admin-link-buttons">
+          <a href="./student.html" target="_blank" rel="noopener">生徒用を開く</a>
+          <a href="./teacher.html" target="_blank" rel="noopener">講師用を開く</a>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <section class="admin-card">
+          <h3>生徒名を登録</h3>
+          <form id="studentMasterForm" class="master-form">
+            <input id="studentMasterName" type="text" placeholder="生徒名">
+            <select id="studentMasterGrade">
+              <option value="">学年</option>
+              <option>小4</option>
+              <option>小5</option>
+              <option>小6</option>
+              <option>中1</option>
+              <option>中2</option>
+              <option>中3</option>
+              <option>高1</option>
+              <option>高2</option>
+              <option>高3</option>
+            </select>
+            <button type="submit">追加</button>
+          </form>
+          <div id="studentMasterList" class="master-list"></div>
+        </section>
+
+        <section class="admin-card">
+          <h3>講師名を登録</h3>
+          <form id="teacherMasterForm" class="master-form">
+            <input id="teacherMasterName" type="text" placeholder="講師名">
+            <button type="submit">追加</button>
+          </form>
+          <div id="teacherMasterList" class="master-list"></div>
+        </section>
+      </div>
+
+      <div class="admin-actions">
+        <button id="loadResultsButton" type="button">結果を読み込む</button>
+        <button id="downloadCsvButton" type="button">CSVを保存</button>
+      </div>
+
+      <div class="results-summary">
+        <span id="studentCount">生徒 0件</span>
+        <span id="teacherCount">講師 0件</span>
+      </div>
+
+      <div id="resultsArea" class="results-area">
+        <p class="empty">まだ読み込んでいません。</p>
+      </div>
+    </section>
+
+    <p id="statusMessage" class="status" aria-live="polite"></p>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
