@@ -38,7 +38,7 @@ const pageLabels = {
 };
 
 const pageLeads = {
-  student: "9月からの通常授業日時を決めるため、来れる日時をタップして提出をお願いします。期限は8/16（日）までです。もし期限内の提出が厳しければお知らせください。",
+  student: "最初はすべて〇にしています。来られない日時だけタップして×にしてから提出してください。",
   teacher: "9月からの勤務日時を決めるため、来れる日時をタップして提出をお願いします。期限は8/16（日）までです。もし期限内の提出が厳しければお知らせください。",
   admin: "生徒・講師の名前を登録し、回答結果を確認します。",
 };
@@ -580,7 +580,7 @@ elements.studentForm.addEventListener("submit", async (event) => {
   const grade = elements.studentGrade.value;
   const memo = document.querySelector("#studentMemo").value.trim();
   if (!state.student.size) {
-    showStatus("来られる日時を1つ以上選択してください。", "error");
+    showStatus("通塾できる日時を1つ以上〇のまま残してください。", "error");
     return;
   }
   showStatus("送信中です...");
