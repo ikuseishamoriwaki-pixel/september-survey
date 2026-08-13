@@ -426,7 +426,7 @@ textarea {
 
 .result-table-wrap {
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -441,6 +441,14 @@ textarea {
 
 .matrix-table {
   font-size: 13px;
+}
+
+.student-matrix {
+  min-width: 1040px;
+}
+
+.teacher-matrix {
+  min-width: 780px;
 }
 
 .result-table th,
@@ -469,11 +477,16 @@ textarea {
 
 .student-matrix th:first-child,
 .student-matrix td:first-child {
-  width: 70px;
+  width: 82px;
 }
 
 .student-matrix th:nth-child(2),
 .student-matrix td:nth-child(2) {
+  width: 70px;
+}
+
+.student-matrix th:nth-child(3),
+.student-matrix td:nth-child(3) {
   width: 50px;
 }
 
@@ -490,6 +503,11 @@ textarea {
 
 .teacher-matrix th:first-child,
 .teacher-matrix td:first-child {
+  width: 82px;
+}
+
+.teacher-matrix th:nth-child(2),
+.teacher-matrix td:nth-child(2) {
   width: 120px;
 }
 

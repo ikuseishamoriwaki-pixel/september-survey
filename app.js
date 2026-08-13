@@ -285,8 +285,6 @@ function renderResults() {
   elements.resultsArea.innerHTML = `
     ${renderStudentMatrix(students)}
     ${renderTeacherMatrix(teachers)}
-    ${renderResultTable("生徒回答一覧", students)}
-    ${renderResultTable("講師回答一覧", teachers)}
   `;
 }
 
@@ -299,6 +297,7 @@ function renderStudentMatrix(rows) {
         <table class="matrix-table student-matrix">
           <thead>
             <tr>
+              <th>回答日時</th>
               <th>名前</th>
               <th>学年</th>
               ${weekdays.flatMap((day) => studentSlots.map((slot) => `<th>${matrixSlotLabel(day, slot)}</th>`)).join("")}
@@ -309,6 +308,7 @@ function renderStudentMatrix(rows) {
           <tbody>
             ${rows.map((row) => `
               <tr>
+                <td>${formatDate(row.created_at)}</td>
                 <td>${escapeHtml(row.respondent_name)}</td>
                 <td>${escapeHtml(row.grade ?? "")}</td>
                 ${weekdays.flatMap((day) => studentSlots.map((slot) => `<td class="mark">${hasStudentSlot(row, day.id, slot.id) ? "〇" : ""}</td>`)).join("")}
@@ -332,6 +332,7 @@ function renderTeacherMatrix(rows) {
         <table class="matrix-table teacher-matrix">
           <thead>
             <tr>
+              <th>回答日時</th>
               <th>名前</th>
               ${teacherDays.map((day) => `<th>${day.label}<br>${day.time}</th>`).join("")}
               <th>補足</th>
@@ -341,45 +342,11 @@ function renderTeacherMatrix(rows) {
           <tbody>
             ${rows.map((row) => `
               <tr>
+                <td>${formatDate(row.created_at)}</td>
                 <td>${escapeHtml(row.respondent_name)}</td>
                 ${teacherDays.map((day) => `<td class="mark">${hasTeacherDay(row, day.id) ? "〇" : ""}</td>`).join("")}
                 <td>${escapeHtml(row.memo ?? "")}</td>
                 <td class="matrix-action">${deleteSubmissionButton(row.id)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function renderResultTable(title, rows) {
-  if (!rows.length) return `<section><h3>${title}</h3><p class="empty">回答なし</p></section>`;
-  return `
-    <section>
-      <h3>${title}</h3>
-      <div class="result-table-wrap">
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th>回答日時</th>
-              <th>名前</th>
-              <th>学年</th>
-              <th>可能日時</th>
-              <th>補足</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <td>${formatDate(row.created_at)}</td>
-                <td>${escapeHtml(row.respondent_name)}</td>
-                <td>${escapeHtml(row.grade ?? "")}</td>
-                <td>${escapeHtml(formatAvailability(row))}</td>
-                <td>${escapeHtml(row.memo ?? "")}</td>
-                <td>${deleteSubmissionButton(row.id)}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -592,15 +559,24 @@ document.addEventListener("click", async (event) => {
 });
 
 elements.loadResultsButton.addEventListener("click", async () => {
-  showStatus("結果を読み込んでいます...");
+  await loadResults();
+});
+
+async function loadResults({ silent = false } = {}) {
+  if (!silent) {
+    showStatus("結果を読み込んでいます...");
+  }
+  elements.loadResultsButton.disabled = true;
   try {
     state.results = await fetchResults();
     renderResults();
     showStatus("結果を読み込みました。");
   } catch (error) {
     showStatus(`読み込めませんでした。${error.message}`, "error");
+  } finally {
+    elements.loadResultsButton.disabled = false;
   }
-});
+}
 
 elements.downloadCsvButton.addEventListener("click", downloadCsv);
 
@@ -608,3 +584,6 @@ renderStudentGrid();
 renderTeacherGrid();
 showPage(state.page);
 fetchPeople().catch((error) => showStatus(`名簿を読み込めませんでした。${error.message}`, "error"));
+if (state.page === "admin") {
+  loadResults({ silent: true });
+}

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const distServer = join(root, "dist", "server");
+const distOpenai = join(root, "dist", ".openai");
 const files = [
   "index.html",
   "student.html",
@@ -34,6 +35,7 @@ const assets = Object.fromEntries(
 
 rmSync(join(root, "dist"), { recursive: true, force: true });
 mkdirSync(distServer, { recursive: true });
+mkdirSync(distOpenai, { recursive: true });
 
 const worker = `const ASSETS = ${JSON.stringify(assets)};
 
@@ -53,3 +55,8 @@ export default {
 `;
 
 writeFileSync(join(distServer, "index.js"), worker, "utf8");
+writeFileSync(
+  join(distOpenai, "hosting.json"),
+  readFileSync(join(root, ".openai", "hosting.json"), "utf8"),
+  "utf8",
+);
