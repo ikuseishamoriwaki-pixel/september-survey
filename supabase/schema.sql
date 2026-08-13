@@ -5,13 +5,15 @@ create table if not exists public.september_survey_submissions (
   respondent_name text not null,
   grade text,
   availability jsonb not null,
-  memo text
+  memo text,
+  unique (role, respondent_name)
 );
 
 alter table public.september_survey_submissions enable row level security;
 
 drop policy if exists "allow survey insert" on public.september_survey_submissions;
 drop policy if exists "allow survey select" on public.september_survey_submissions;
+drop policy if exists "allow survey update" on public.september_survey_submissions;
 drop policy if exists "allow survey delete" on public.september_survey_submissions;
 
 create policy "allow survey insert"
@@ -28,6 +30,16 @@ on public.september_survey_submissions
 for select
 to anon
 using (true);
+
+create policy "allow survey update"
+on public.september_survey_submissions
+for update
+to anon
+using (true)
+with check (
+  role in ('student', 'teacher')
+  and respondent_name <> ''
+);
 
 create policy "allow survey delete"
 on public.september_survey_submissions

@@ -220,7 +220,7 @@ textarea {
   border-top: 1px solid var(--line);
   border-left: 1px solid var(--line);
   background: #fff;
-  color: transparent;
+  color: var(--red);
   font-weight: 800;
   cursor: pointer;
 }
@@ -236,6 +236,48 @@ textarea {
   background: var(--green-soft);
   color: var(--green);
   box-shadow: inset 0 0 0 2px var(--green);
+}
+
+.slot.unavailable {
+  background: #fff7f7;
+  box-shadow: inset 0 0 0 1px #fecaca;
+}
+
+.own-answer {
+  display: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fbfdff;
+}
+
+.own-answer:not(:empty) {
+  display: block;
+}
+
+.own-answer-title {
+  padding: 10px 12px;
+  background: #f6f9fd;
+  font-weight: 800;
+}
+
+.own-answer table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.own-answer th,
+.own-answer td {
+  padding: 9px 12px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.own-answer th {
+  width: 92px;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .teacher-days {

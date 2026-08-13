@@ -28,6 +28,7 @@ const studentSlots = [
   { id: "21", label: "21:00-21:50" },
 ];
 
+const localSubmissionPrefix = "septemberSurveySubmission";
 const gradeOrder = ["小4", "小5", "小6", "中1", "中2", "中3", "高1", "高2", "高3"];
 
 const pageLabels = {
@@ -62,6 +63,8 @@ const elements = {
   teacherName: document.querySelector("#teacherName"),
   studentGrid: document.querySelector("#studentGrid"),
   teacherGrid: document.querySelector("#teacherGrid"),
+  studentReview: document.querySelector("#studentReview"),
+  teacherReview: document.querySelector("#teacherReview"),
   studentMasterForm: document.querySelector("#studentMasterForm"),
   teacherMasterForm: document.querySelector("#teacherMasterForm"),
   studentMasterName: document.querySelector("#studentMasterName"),
@@ -113,11 +116,20 @@ function renderStudentGrid() {
     cells.push(`<div class="time">${slot.label}</div>`);
     for (const day of weekdays) {
       const key = `${day.id}_${slot.id}`;
-      cells.push(`<button class="slot ${state.student.has(key) ? "selected" : ""}" type="button" data-student-slot="${key}">${state.student.has(key) ? "〇" : ""}</button>`);
+      const available = state.student.has(key);
+      cells.push(`<button class="slot ${available ? "selected" : "unavailable"}" type="button" data-student-slot="${key}">${available ? "〇" : "×"}</button>`);
     }
   }
 
   elements.studentGrid.innerHTML = cells.join("");
+}
+
+function allStudentSlotKeys() {
+  return weekdays.flatMap((day) => studentSlots.map((slot) => `${day.id}_${slot.id}`));
+}
+
+function selectAllStudentSlots() {
+  state.student = new Set(allStudentSlotKeys());
 }
 
 function renderTeacherGrid() {
@@ -157,6 +169,14 @@ function renderStudentNameOptions(students = sortStudents(state.people.filter((p
     : '<option value="">未選択</option>' + filtered.map((person) =>
       `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)}</option>`
     ).join("");
+}
+
+function sortBySubmittedAt(rows) {
+  return [...rows].sort((a, b) => {
+    const dateDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (dateDiff) return dateDiff;
+    return Number(b.id ?? 0) - Number(a.id ?? 0);
+  });
 }
 
 function renderPeople() {
@@ -240,12 +260,15 @@ function buildTeacherAvailability() {
 }
 
 async function insertSubmission(payload) {
-  const response = await fetch(apiUrl(SUPABASE.submissionsTable), {
+  const submission = { ...payload, created_at: new Date().toISOString() };
+  const response = await fetch(apiUrl(SUPABASE.submissionsTable, "?on_conflict=role,respondent_name"), {
     method: "POST",
-    headers: apiHeaders({ Prefer: "return=minimal" }),
-    body: JSON.stringify(payload),
+    headers: apiHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
+    body: JSON.stringify(submission),
   });
   if (!response.ok) throw new Error(await response.text() || "送信に失敗しました。");
+  const saved = await response.json();
+  return saved[0] ?? submission;
 }
 
 async function fetchResults() {
@@ -272,8 +295,8 @@ function matrixSlotLabel(day, slot) {
 }
 
 function renderResults() {
-  const students = sortStudents(state.results.filter((row) => row.role === "student"));
-  const teachers = sortTeachers(state.results.filter((row) => row.role === "teacher"));
+  const students = sortBySubmittedAt(state.results.filter((row) => row.role === "student"));
+  const teachers = sortBySubmittedAt(state.results.filter((row) => row.role === "teacher"));
   elements.studentCount.textContent = `生徒 ${students.length}件`;
   elements.teacherCount.textContent = `講師 ${teachers.length}件`;
 
@@ -394,6 +417,96 @@ function formatDate(value) {
   }).format(date);
 }
 
+function localSubmissionKey(role, name) {
+  return `${localSubmissionPrefix}:${role}:${name}`;
+}
+
+function saveLocalSubmission(submission) {
+  try {
+    localStorage.setItem(localSubmissionKey(submission.role, submission.respondent_name), JSON.stringify(submission));
+  } catch {
+    // Local answer review is a convenience; submission itself has already succeeded.
+  }
+}
+
+function readLocalSubmission(role, name) {
+  if (!name) return null;
+  try {
+    const value = localStorage.getItem(localSubmissionKey(role, name));
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderOwnAnswer(role, submission) {
+  const element = role === "student" ? elements.studentReview : elements.teacherReview;
+  if (!element) return;
+  if (!submission) {
+    element.innerHTML = "";
+    return;
+  }
+  element.innerHTML = `
+    <div class="own-answer-title">前回送信した内容</div>
+    <table>
+      <tbody>
+        <tr>
+          <th>回答日時</th>
+          <td>${formatDate(submission.created_at)}</td>
+        </tr>
+        <tr>
+          <th>可能日時</th>
+          <td>${escapeHtml(formatAvailability(submission) || "なし")}</td>
+        </tr>
+        <tr>
+          <th>補足</th>
+          <td>${escapeHtml(submission.memo ?? "")}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function applyStudentSubmission(submission) {
+  state.student = new Set(
+    (submission.availability ?? []).flatMap((day) =>
+      (day.slots ?? [])
+        .filter((slot) => slot.available)
+        .map((slot) => `${day.day}_${slot.slot}`)
+    )
+  );
+  document.querySelector("#studentMemo").value = submission.memo ?? "";
+  renderStudentGrid();
+}
+
+function applyTeacherSubmission(submission) {
+  state.teacher = new Set(
+    (submission.availability ?? [])
+      .filter((day) => day.available)
+      .map((day) => day.day)
+  );
+  document.querySelector("#teacherMemo").value = submission.memo ?? "";
+  renderTeacherGrid();
+}
+
+function loadOwnStudentAnswer() {
+  const submission = readLocalSubmission("student", elements.studentName.value);
+  if (submission) {
+    applyStudentSubmission(submission);
+  } else {
+    selectAllStudentSlots();
+    document.querySelector("#studentMemo").value = "";
+    renderStudentGrid();
+  }
+  renderOwnAnswer("student", submission);
+}
+
+function loadOwnTeacherAnswer() {
+  const submission = readLocalSubmission("teacher", elements.teacherName.value);
+  if (submission) applyTeacherSubmission(submission);
+  renderOwnAnswer("teacher", submission);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -434,7 +547,15 @@ function downloadCsv() {
   URL.revokeObjectURL(url);
 }
 
-elements.studentGrade.addEventListener("change", () => renderStudentNameOptions());
+elements.studentGrade.addEventListener("change", () => {
+  renderStudentNameOptions();
+  selectAllStudentSlots();
+  renderStudentGrid();
+  renderOwnAnswer("student", null);
+});
+
+elements.studentName.addEventListener("change", loadOwnStudentAnswer);
+elements.teacherName.addEventListener("change", loadOwnTeacherAnswer);
 
 elements.studentGrid.addEventListener("click", (event) => {
   const key = event.target.dataset.studentSlot;
@@ -464,12 +585,14 @@ elements.studentForm.addEventListener("submit", async (event) => {
   }
   showStatus("送信中です...");
   try {
-    await insertSubmission({ role: "student", respondent_name: name, grade, availability: buildStudentAvailability(), memo });
+    const submission = await insertSubmission({ role: "student", respondent_name: name, grade, availability: buildStudentAvailability(), memo });
+    saveLocalSubmission(submission);
     elements.studentForm.reset();
     renderStudentNameOptions();
-    state.student.clear();
+    selectAllStudentSlots();
     renderStudentGrid();
-    showStatus("送信しました。ありがとうございます。");
+    renderOwnAnswer("student", submission);
+    showStatus("送信しました。前回の回答がある場合は上書きしました。");
   } catch (error) {
     showStatus(`送信できませんでした。${error.message}`, "error");
   }
@@ -485,11 +608,13 @@ elements.teacherForm.addEventListener("submit", async (event) => {
   }
   showStatus("送信中です...");
   try {
-    await insertSubmission({ role: "teacher", respondent_name: name, grade: null, availability: buildTeacherAvailability(), memo });
+    const submission = await insertSubmission({ role: "teacher", respondent_name: name, grade: null, availability: buildTeacherAvailability(), memo });
+    saveLocalSubmission(submission);
     elements.teacherForm.reset();
     state.teacher.clear();
     renderTeacherGrid();
-    showStatus("送信しました。ありがとうございます。");
+    renderOwnAnswer("teacher", submission);
+    showStatus("送信しました。前回の回答がある場合は上書きしました。");
   } catch (error) {
     showStatus(`送信できませんでした。${error.message}`, "error");
   }
@@ -580,6 +705,7 @@ async function loadResults({ silent = false } = {}) {
 
 elements.downloadCsvButton.addEventListener("click", downloadCsv);
 
+if (state.page === "student") selectAllStudentSlots();
 renderStudentGrid();
 renderTeacherGrid();
 showPage(state.page);
