@@ -17,7 +17,6 @@
     <nav id="tabs" class="tabs" aria-label="入力切り替え">
       <a class="tab" data-page-link="student" href="./student.html">生徒用</a>
       <a class="tab" data-page-link="teacher" href="./teacher.html">講師用</a>
-      <a class="tab" data-page-link="admin" href="./admin.html">管理用</a>
     </nav>
 
     <section id="studentView" class="panel view">
@@ -87,70 +86,6 @@
 
         <button class="primary" type="submit">講師回答を送信</button>
       </form>
-    </section>
-
-    <section id="adminView" class="panel view">
-      <div class="panel-title">
-        <h2>管理用</h2>
-        <p>生徒・講師の名前を登録し、回答結果を確認します。</p>
-      </div>
-
-      <div class="admin-link-card">
-        <div>
-          <h3>回答画面</h3>
-          <p>管理画面から、生徒用・講師用の入力画面を確認できます。</p>
-        </div>
-        <div class="admin-link-buttons">
-          <a href="./student.html" target="_blank" rel="noopener">生徒用を開く</a>
-          <a href="./teacher.html" target="_blank" rel="noopener">講師用を開く</a>
-        </div>
-      </div>
-
-      <div class="admin-grid">
-        <section class="admin-card">
-          <h3>生徒名を登録</h3>
-          <form id="studentMasterForm" class="master-form">
-            <input id="studentMasterName" type="text" placeholder="生徒名">
-            <select id="studentMasterGrade">
-              <option value="">学年</option>
-              <option>小4</option>
-              <option>小5</option>
-              <option>小6</option>
-              <option>中1</option>
-              <option>中2</option>
-              <option>中3</option>
-              <option>高1</option>
-              <option>高2</option>
-              <option>高3</option>
-            </select>
-            <button type="submit">追加</button>
-          </form>
-          <div id="studentMasterList" class="master-list"></div>
-        </section>
-
-        <section class="admin-card">
-          <h3>講師名を登録</h3>
-          <form id="teacherMasterForm" class="master-form">
-            <input id="teacherMasterName" type="text" placeholder="講師名">
-            <button type="submit">追加</button>
-          </form>
-          <div id="teacherMasterList" class="master-list"></div>
-        </section>
-      </div>
-
-      <div class="admin-actions">
-        <button id="loadResultsButton" type="button">結果を再読み込み</button>
-        <button id="downloadCsvButton" type="button">CSVを保存</button>
-      </div>
-
-      <div class="results-summary">
-        <span id="studentCount">生徒 0件</span>
-        <span id="teacherCount">講師 0件</span>
-      </div>
-
-      <div id="resultsArea" class="results-area">
-        <p class="empty">まだ読み込んでいません。</p>
-      </div>
     </section>
 
     <p id="statusMessage" class="status" aria-live="polite"></p>

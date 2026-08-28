@@ -34,21 +34,18 @@ const gradeOrder = ["小4", "小5", "小6", "中1", "中2", "中3", "高1", "高
 const pageLabels = {
   student: "生徒用",
   teacher: "講師用",
-  admin: "管理用",
 };
 
 const pageLeads = {
   student: "最初はすべて〇にしています。来れない日時に×をして提出してください。よろしくお願いします。",
   teacher: "9月からの勤務日時を決めるため、来れる日時をタップして提出をお願いします。期限は8/16（日）までです。もし期限内の提出が厳しければお知らせください。",
-  admin: "生徒・講師の名前を登録し、回答結果を確認します。",
 };
 
 const state = {
-  page: new URLSearchParams(location.search).get("page") || "admin",
+  page: new URLSearchParams(location.search).get("page") || "student",
   student: new Set(),
   teacher: new Set(),
   people: [],
-  results: [],
 };
 
 const elements = {
@@ -65,18 +62,6 @@ const elements = {
   teacherGrid: document.querySelector("#teacherGrid"),
   studentReview: document.querySelector("#studentReview"),
   teacherReview: document.querySelector("#teacherReview"),
-  studentMasterForm: document.querySelector("#studentMasterForm"),
-  teacherMasterForm: document.querySelector("#teacherMasterForm"),
-  studentMasterName: document.querySelector("#studentMasterName"),
-  studentMasterGrade: document.querySelector("#studentMasterGrade"),
-  teacherMasterName: document.querySelector("#teacherMasterName"),
-  studentMasterList: document.querySelector("#studentMasterList"),
-  teacherMasterList: document.querySelector("#teacherMasterList"),
-  loadResultsButton: document.querySelector("#loadResultsButton"),
-  downloadCsvButton: document.querySelector("#downloadCsvButton"),
-  resultsArea: document.querySelector("#resultsArea"),
-  studentCount: document.querySelector("#studentCount"),
-  teacherCount: document.querySelector("#teacherCount"),
 };
 
 function apiUrl(table, query = "") {
@@ -98,7 +83,7 @@ function showStatus(message, type = "ok") {
 }
 
 function showPage(page) {
-  state.page = pageLabels[page] ? page : "admin";
+  state.page = pageLabels[page] ? page : "student";
   document.body.dataset.page = state.page;
   elements.views.forEach((panel) => panel.classList.toggle("active", panel.id === `${state.page}View`));
   elements.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.pageLink === state.page));
@@ -171,14 +156,6 @@ function renderStudentNameOptions(students = sortStudents(state.people.filter((p
     ).join("");
 }
 
-function sortBySubmittedAt(rows) {
-  return [...rows].sort((a, b) => {
-    const dateDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    if (dateDiff) return dateDiff;
-    return Number(b.id ?? 0) - Number(a.id ?? 0);
-  });
-}
-
 function renderPeople() {
   const students = sortStudents(state.people.filter((person) => person.role === "student"));
   const teachers = sortTeachers(state.people.filter((person) => person.role === "teacher"));
@@ -196,19 +173,6 @@ function renderPeople() {
   elements.teacherName.innerHTML = '<option value="">未選択</option>' + teachers.map((person) =>
     `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)}</option>`
   ).join("");
-
-  elements.studentMasterList.innerHTML = renderMasterList(students, true);
-  elements.teacherMasterList.innerHTML = renderMasterList(teachers, false);
-}
-
-function renderMasterList(people, showGrade) {
-  if (!people.length) return '<p class="empty">まだ登録がありません。</p>';
-  return people.map((person) => `
-    <div class="master-row">
-      <span>${escapeHtml(person.name)}${showGrade ? ` <small>${escapeHtml(person.grade ?? "")}</small>` : ""}</span>
-      <button type="button" data-delete-person="${person.id}">削除</button>
-    </div>
-  `).join("");
 }
 
 async function fetchPeople() {
@@ -218,24 +182,6 @@ async function fetchPeople() {
   if (!response.ok) throw new Error(await response.text() || "名簿の読み込みに失敗しました。");
   state.people = await response.json();
   renderPeople();
-}
-
-async function addPerson(role, name, grade = null) {
-  const response = await fetch(apiUrl(SUPABASE.peopleTable, "?on_conflict=role,name"), {
-    method: "POST",
-    headers: apiHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
-    body: JSON.stringify({ role, name, grade, active: true }),
-  });
-  if (!response.ok) throw new Error(await response.text() || "名前の追加に失敗しました。");
-}
-
-async function deletePerson(id) {
-  const response = await fetch(apiUrl(SUPABASE.peopleTable, `?id=eq.${encodeURIComponent(id)}`), {
-    method: "PATCH",
-    headers: apiHeaders({ Prefer: "return=minimal" }),
-    body: JSON.stringify({ active: false }),
-  });
-  if (!response.ok) throw new Error(await response.text() || "削除に失敗しました。");
 }
 
 function buildStudentAvailability() {
@@ -261,135 +207,16 @@ function buildTeacherAvailability() {
 
 async function insertSubmission(payload) {
   const submission = { ...payload, created_at: new Date().toISOString() };
-  const response = await fetch(apiUrl(SUPABASE.submissionsTable, "?on_conflict=role,respondent_name"), {
+  const response = await fetch(apiUrl(SUPABASE.submissionsTable), {
     method: "POST",
-    headers: apiHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
+    headers: apiHeaders({ Prefer: "return=minimal" }),
     body: JSON.stringify(submission),
   });
-  if (!response.ok) throw new Error(await response.text() || "送信に失敗しました。");
-  const saved = await response.json();
-  return saved[0] ?? submission;
-}
-
-async function fetchResults() {
-  const response = await fetch(apiUrl(SUPABASE.submissionsTable, "?select=*&order=created_at.desc"), {
-    headers: apiHeaders(),
-  });
-  if (!response.ok) throw new Error(await response.text() || "読み込みに失敗しました。");
-  return response.json();
-}
-
-async function deleteSubmission(id) {
-  const response = await fetch(apiUrl(SUPABASE.submissionsTable, `?id=eq.${encodeURIComponent(id)}`), {
-    method: "DELETE",
-    headers: apiHeaders({ Prefer: "return=minimal" }),
-  });
-  if (!response.ok) throw new Error(await response.text() || "回答の削除に失敗しました。");
-}
-
-function matrixSlotLabel(day, slot) {
-  return `
-    <span>${day.label.replace("曜日", "")}</span>
-    <span>${slot.label.replace("-", "<br>")}</span>
-  `;
-}
-
-function renderResults() {
-  const students = sortBySubmittedAt(state.results.filter((row) => row.role === "student"));
-  const teachers = sortBySubmittedAt(state.results.filter((row) => row.role === "teacher"));
-  elements.studentCount.textContent = `生徒 ${students.length}件`;
-  elements.teacherCount.textContent = `講師 ${teachers.length}件`;
-
-  if (!state.results.length) {
-    elements.resultsArea.innerHTML = '<p class="empty">回答はまだありません。</p>';
-    return;
+  if (response.status === 409) {
+    throw new Error("回答済みです。変更が必要な場合は管理者へ連絡してください。");
   }
-
-  elements.resultsArea.innerHTML = `
-    ${renderStudentMatrix(students)}
-    ${renderTeacherMatrix(teachers)}
-  `;
-}
-
-function renderStudentMatrix(rows) {
-  if (!rows.length) return "";
-  return `
-    <section>
-      <h3>生徒 通塾可能表</h3>
-      <div class="result-table-wrap">
-        <table class="matrix-table student-matrix">
-          <thead>
-            <tr>
-              <th>回答日時</th>
-              <th>名前</th>
-              <th>学年</th>
-              ${weekdays.flatMap((day) => studentSlots.map((slot) => `<th>${matrixSlotLabel(day, slot)}</th>`)).join("")}
-              <th>補足</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <td>${formatDate(row.created_at)}</td>
-                <td>${escapeHtml(row.respondent_name)}</td>
-                <td>${escapeHtml(row.grade ?? "")}</td>
-                ${weekdays.flatMap((day) => studentSlots.map((slot) => `<td class="mark">${hasStudentSlot(row, day.id, slot.id) ? "〇" : ""}</td>`)).join("")}
-                <td>${escapeHtml(row.memo ?? "")}</td>
-                <td class="matrix-action">${deleteSubmissionButton(row.id)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function renderTeacherMatrix(rows) {
-  if (!rows.length) return "";
-  return `
-    <section>
-      <h3>講師 勤務可能表</h3>
-      <div class="result-table-wrap">
-        <table class="matrix-table teacher-matrix">
-          <thead>
-            <tr>
-              <th>回答日時</th>
-              <th>名前</th>
-              ${teacherDays.map((day) => `<th>${day.label}<br>${day.time}</th>`).join("")}
-              <th>補足</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((row) => `
-              <tr>
-                <td>${formatDate(row.created_at)}</td>
-                <td>${escapeHtml(row.respondent_name)}</td>
-                ${teacherDays.map((day) => `<td class="mark">${hasTeacherDay(row, day.id) ? "〇" : ""}</td>`).join("")}
-                <td>${escapeHtml(row.memo ?? "")}</td>
-                <td class="matrix-action">${deleteSubmissionButton(row.id)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function deleteSubmissionButton(id) {
-  return `<button class="danger-small" type="button" data-delete-submission="${escapeHtml(id)}">削除</button>`;
-}
-
-function hasStudentSlot(row, dayId, slotId) {
-  const day = (row.availability ?? []).find((item) => item.day === dayId);
-  return Boolean(day?.slots?.some((slot) => slot.slot === slotId && slot.available));
-}
-
-function hasTeacherDay(row, dayId) {
-  return Boolean((row.availability ?? []).find((day) => day.day === dayId && day.available));
+  if (!response.ok) throw new Error(await response.text() || "送信に失敗しました。");
+  return submission;
 }
 
 function formatAvailability(row) {
@@ -516,37 +343,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function makeCsv() {
-  const headers = ["種別", "回答日時", "名前", "学年", "可能日時", "補足"];
-  const rows = state.results.map((row) => [
-    row.role === "student" ? "生徒" : "講師",
-    row.created_at ?? "",
-    row.respondent_name ?? "",
-    row.grade ?? "",
-    formatAvailability(row),
-    row.memo ?? "",
-  ]);
-  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
-}
-
-function csvCell(value) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
-
-function downloadCsv() {
-  if (!state.results.length) {
-    showStatus("先に結果を読み込んでください。", "error");
-    return;
-  }
-  const blob = new Blob([`\uFEFF${makeCsv()}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "9月通常授業アンケート結果.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 elements.studentGrade.addEventListener("change", () => {
   renderStudentNameOptions();
   selectAllStudentSlots();
@@ -592,7 +388,7 @@ elements.studentForm.addEventListener("submit", async (event) => {
     selectAllStudentSlots();
     renderStudentGrid();
     renderOwnAnswer("student", submission);
-    showStatus("送信しました。前回の回答がある場合は上書きしました。");
+    showStatus("送信しました。");
   } catch (error) {
     showStatus(`送信できませんでした。${error.message}`, "error");
   }
@@ -614,102 +410,14 @@ elements.teacherForm.addEventListener("submit", async (event) => {
     state.teacher.clear();
     renderTeacherGrid();
     renderOwnAnswer("teacher", submission);
-    showStatus("送信しました。前回の回答がある場合は上書きしました。");
+    showStatus("送信しました。");
   } catch (error) {
     showStatus(`送信できませんでした。${error.message}`, "error");
   }
 });
-
-elements.studentMasterForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const name = elements.studentMasterName.value.trim();
-  const grade = elements.studentMasterGrade.value;
-  if (!name || !grade) {
-    showStatus("生徒名と学年を入力してください。", "error");
-    return;
-  }
-  try {
-    await addPerson("student", name, grade);
-    elements.studentMasterForm.reset();
-    await fetchPeople();
-    showStatus("生徒名を追加しました。");
-  } catch (error) {
-    showStatus(`追加できませんでした。${error.message}`, "error");
-  }
-});
-
-elements.teacherMasterForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const name = elements.teacherMasterName.value.trim();
-  if (!name) {
-    showStatus("講師名を入力してください。", "error");
-    return;
-  }
-  try {
-    await addPerson("teacher", name);
-    elements.teacherMasterForm.reset();
-    await fetchPeople();
-    showStatus("講師名を追加しました。");
-  } catch (error) {
-    showStatus(`追加できませんでした。${error.message}`, "error");
-  }
-});
-
-document.addEventListener("click", async (event) => {
-  const deletePersonButton = event.target.closest("[data-delete-person]");
-  const personId = deletePersonButton?.dataset.deletePerson;
-  if (personId) {
-    try {
-      await deletePerson(personId);
-      await fetchPeople();
-      showStatus("名簿から外しました。");
-    } catch (error) {
-      showStatus(`削除できませんでした。${error.message}`, "error");
-    }
-    return;
-  }
-
-  const deleteSubmissionTarget = event.target.closest("[data-delete-submission]");
-  const submissionId = deleteSubmissionTarget?.dataset.deleteSubmission;
-  if (!submissionId) return;
-  if (!confirm("この回答を削除しますか？")) return;
-  try {
-    await deleteSubmission(submissionId);
-    state.results = await fetchResults();
-    renderResults();
-    showStatus("回答を削除しました。");
-  } catch (error) {
-    showStatus(`削除できませんでした。${error.message}`, "error");
-  }
-});
-
-elements.loadResultsButton.addEventListener("click", async () => {
-  await loadResults();
-});
-
-async function loadResults({ silent = false } = {}) {
-  if (!silent) {
-    showStatus("結果を読み込んでいます...");
-  }
-  elements.loadResultsButton.disabled = true;
-  try {
-    state.results = await fetchResults();
-    renderResults();
-    showStatus("結果を読み込みました。");
-  } catch (error) {
-    showStatus(`読み込めませんでした。${error.message}`, "error");
-  } finally {
-    elements.loadResultsButton.disabled = false;
-  }
-}
-
-elements.downloadCsvButton.addEventListener("click", downloadCsv);
 
 if (state.page === "student") selectAllStudentSlots();
 renderStudentGrid();
 renderTeacherGrid();
 showPage(state.page);
 fetchPeople().catch((error) => showStatus(`名簿を読み込めませんでした。${error.message}`, "error"));
-if (state.page === "admin") {
-  loadResults({ silent: true });
-}
