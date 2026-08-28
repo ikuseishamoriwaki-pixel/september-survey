@@ -1,2 +1,8 @@
 *.tar.gz
 node_modules/
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+backups/
+*.backup.json

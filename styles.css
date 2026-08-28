@@ -142,6 +142,57 @@ body[data-page="teacher"] .tabs {
   gap: 16px;
 }
 
+.access-state {
+  display: block;
+  text-align: center;
+}
+
+.access-state[hidden] {
+  display: none;
+}
+
+.access-state h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+}
+
+.access-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.access-state.error {
+  border-color: #f0b4ae;
+}
+
+.respondent-identity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f6f9fd;
+}
+
+.respondent-identity strong {
+  min-width: 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.identity-meta {
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .student-select-row {
   display: grid;
   grid-template-columns: minmax(130px, 180px) minmax(240px, 1fr);

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <title>9月通常授業アンケート</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -14,10 +15,10 @@
       <span id="pageLead">来られる曜日・時間を選んで送信してください。</span>
     </header>
 
-    <nav id="tabs" class="tabs" aria-label="入力切り替え">
-      <a class="tab" data-page-link="student" href="./student.html">生徒用</a>
-      <a class="tab" data-page-link="teacher" href="./teacher.html">講師用</a>
-    </nav>
+    <section id="accessState" class="panel access-state">
+      <h2 id="accessTitle">回答ページを確認しています</h2>
+      <p id="accessMessage">少しお待ちください。</p>
+    </section>
 
     <section id="studentView" class="panel view">
       <div class="panel-title">
@@ -26,20 +27,9 @@
       </div>
 
       <form id="studentForm" class="form">
-        <div class="student-select-row">
-          <label>
-            学年
-            <select id="studentGrade" name="grade" required>
-              <option value="">未選択</option>
-            </select>
-          </label>
-
-          <label>
-            生徒名
-            <select id="studentName" name="name" required disabled>
-              <option value="">未選択</option>
-            </select>
-          </label>
+        <div class="respondent-identity" aria-label="回答者">
+          <span id="studentIdentityGrade" class="identity-meta"></span>
+          <strong id="studentIdentityName"></strong>
         </div>
 
         <div class="grid-card">
@@ -65,12 +55,10 @@
       </div>
 
       <form id="teacherForm" class="form">
-        <label>
-          講師名
-          <select id="teacherName" name="name" required>
-            <option value="">未選択</option>
-          </select>
-        </label>
+        <div class="respondent-identity" aria-label="回答者">
+          <span class="identity-meta">講師</span>
+          <strong id="teacherIdentityName"></strong>
+        </div>
 
         <div class="grid-card">
           <div class="grid-label">勤務可能な曜日</div>

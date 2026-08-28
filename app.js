@@ -1,8 +1,6 @@
 const SUPABASE = {
   url: "https://dlymqxjxandoxponairu.supabase.co",
-  key: "sb_publishable_EJKOxEgtTCaQdzlcTpffAw_68oyJFQ9",
-  submissionsTable: "september_survey_submissions",
-  peopleTable: "september_survey_people",
+  functionName: "september-survey-response",
 };
 
 const weekdays = [
@@ -29,12 +27,8 @@ const studentSlots = [
 ];
 
 const localSubmissionPrefix = "septemberSurveySubmission";
-const gradeOrder = ["小4", "小5", "小6", "中1", "中2", "中3", "高1", "高2", "高3"];
-
-const pageLabels = {
-  student: "生徒用",
-  teacher: "講師用",
-};
+const sessionTokenKey = "septemberSurveyAccessToken";
+const tokenPattern = /^[a-f0-9]{64}$/i;
 
 const pageLeads = {
   student: "最初はすべて〇にしています。来れない日時に×をして提出してください。よろしくお願いします。",
@@ -42,39 +36,34 @@ const pageLeads = {
 };
 
 const state = {
-  page: new URLSearchParams(location.search).get("page") || "student",
+  page: null,
+  profile: null,
+  token: "",
+  tokenStorageKey: "",
   student: new Set(),
   teacher: new Set(),
-  people: [],
 };
 
 const elements = {
   pageLead: document.querySelector("#pageLead"),
-  tabs: [...document.querySelectorAll(".tab")],
+  accessState: document.querySelector("#accessState"),
+  accessTitle: document.querySelector("#accessTitle"),
+  accessMessage: document.querySelector("#accessMessage"),
   views: [...document.querySelectorAll(".view")],
   status: document.querySelector("#statusMessage"),
   studentForm: document.querySelector("#studentForm"),
   teacherForm: document.querySelector("#teacherForm"),
-  studentName: document.querySelector("#studentName"),
-  studentGrade: document.querySelector("#studentGrade"),
-  teacherName: document.querySelector("#teacherName"),
+  studentIdentityName: document.querySelector("#studentIdentityName"),
+  studentIdentityGrade: document.querySelector("#studentIdentityGrade"),
+  teacherIdentityName: document.querySelector("#teacherIdentityName"),
   studentGrid: document.querySelector("#studentGrid"),
   teacherGrid: document.querySelector("#teacherGrid"),
   studentReview: document.querySelector("#studentReview"),
   teacherReview: document.querySelector("#teacherReview"),
 };
 
-function apiUrl(table, query = "") {
-  return `${SUPABASE.url}/rest/v1/${table}${query}`;
-}
-
-function apiHeaders(extra = {}) {
-  return {
-    apikey: SUPABASE.key,
-    Authorization: `Bearer ${SUPABASE.key}`,
-    "Content-Type": "application/json",
-    ...extra,
-  };
+function functionUrl(query = "") {
+  return `${SUPABASE.url}/functions/v1/${SUPABASE.functionName}${query}`;
 }
 
 function showStatus(message, type = "ok") {
@@ -82,12 +71,21 @@ function showStatus(message, type = "ok") {
   elements.status.className = `status ${type}`;
 }
 
+function showAccessState(title, message, type = "") {
+  elements.accessState.hidden = false;
+  elements.accessState.className = `panel access-state ${type}`.trim();
+  elements.accessTitle.textContent = title;
+  elements.accessMessage.textContent = message;
+  elements.views.forEach((panel) => panel.classList.remove("active"));
+  elements.pageLead.textContent = "専用の回答URLを確認しています。";
+}
+
 function showPage(page) {
-  state.page = pageLabels[page] ? page : "student";
-  document.body.dataset.page = state.page;
-  elements.views.forEach((panel) => panel.classList.toggle("active", panel.id === `${state.page}View`));
-  elements.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.pageLink === state.page));
-  elements.pageLead.textContent = pageLeads[state.page];
+  state.page = page;
+  document.body.dataset.page = page;
+  elements.accessState.hidden = true;
+  elements.views.forEach((panel) => panel.classList.toggle("active", panel.id === `${page}View`));
+  elements.pageLead.textContent = pageLeads[page];
   showStatus("");
 }
 
@@ -127,63 +125,6 @@ function renderTeacherGrid() {
   `).join("");
 }
 
-function gradeRank(grade) {
-  const index = gradeOrder.indexOf(grade);
-  return index === -1 ? 999 : index;
-}
-
-function sortStudents(students) {
-  return [...students].sort((a, b) =>
-    gradeRank(a.grade) - gradeRank(b.grade)
-    || String(a.name ?? a.respondent_name).localeCompare(String(b.name ?? b.respondent_name), "ja")
-  );
-}
-
-function sortTeachers(teachers) {
-  return [...teachers].sort((a, b) =>
-    String(a.name ?? a.respondent_name).localeCompare(String(b.name ?? b.respondent_name), "ja")
-  );
-}
-
-function renderStudentNameOptions(students = sortStudents(state.people.filter((person) => person.role === "student"))) {
-  const grade = elements.studentGrade.value;
-  const filtered = grade ? students.filter((person) => person.grade === grade) : [];
-  elements.studentName.disabled = !grade;
-  elements.studentName.innerHTML = !grade
-    ? '<option value="">未選択</option>'
-    : '<option value="">未選択</option>' + filtered.map((person) =>
-      `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)}</option>`
-    ).join("");
-}
-
-function renderPeople() {
-  const students = sortStudents(state.people.filter((person) => person.role === "student"));
-  const teachers = sortTeachers(state.people.filter((person) => person.role === "teacher"));
-  const selectedGrade = elements.studentGrade.value;
-  const availableGrades = [...new Set(students.map((person) => person.grade).filter(Boolean))]
-    .sort((a, b) => gradeRank(a) - gradeRank(b));
-
-  elements.studentGrade.innerHTML = '<option value="">未選択</option>' + availableGrades.map((grade) =>
-    `<option value="${escapeHtml(grade)}">${escapeHtml(grade)}</option>`
-  ).join("");
-  if (availableGrades.includes(selectedGrade)) elements.studentGrade.value = selectedGrade;
-  else elements.studentGrade.value = "";
-  renderStudentNameOptions(students);
-
-  elements.teacherName.innerHTML = '<option value="">未選択</option>' + teachers.map((person) =>
-    `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)}</option>`
-  ).join("");
-}
-
-async function fetchPeople() {
-  const response = await fetch(apiUrl(SUPABASE.peopleTable, "?select=*&active=eq.true&order=role.asc,name.asc"), {
-    headers: apiHeaders(),
-  });
-  if (!response.ok) throw new Error(await response.text() || "名簿の読み込みに失敗しました。");
-  state.people = await response.json();
-  renderPeople();
-}
-
 function buildStudentAvailability() {
   return weekdays.map((day) => ({
     day: day.id,
@@ -205,18 +146,35 @@ function buildTeacherAvailability() {
   }));
 }
 
-async function insertSubmission(payload) {
-  const submission = { ...payload, created_at: new Date().toISOString() };
-  const response = await fetch(apiUrl(SUPABASE.submissionsTable), {
-    method: "POST",
-    headers: apiHeaders({ Prefer: "return=minimal" }),
-    body: JSON.stringify(submission),
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function fetchProfile(token) {
+  const response = await fetch(functionUrl(`?token=${encodeURIComponent(token)}`), {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
   });
+  if (!response.ok) throw new Error("この回答URLは無効か、期限が切れています。管理者へ連絡してください。");
+  const data = await response.json();
+  return data.profile;
+}
+
+async function submitSurvey(availability, memo) {
+  const response = await fetch(functionUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ token: state.token, availability, memo }),
+  });
+  const data = await response.json().catch(() => ({}));
   if (response.status === 409) {
     throw new Error("回答済みです。変更が必要な場合は管理者へ連絡してください。");
   }
-  if (!response.ok) throw new Error(await response.text() || "送信に失敗しました。");
-  return submission;
+  if (!response.ok) throw new Error(data.message || "時間をおいて、もう一度お試しください。");
+  return data;
 }
 
 function formatAvailability(row) {
@@ -244,23 +202,28 @@ function formatDate(value) {
   }).format(date);
 }
 
-function localSubmissionKey(role, name) {
-  return `${localSubmissionPrefix}:${role}:${name}`;
+function tokenSubmissionKey() {
+  return `${localSubmissionPrefix}:token:${state.tokenStorageKey}`;
+}
+
+function legacySubmissionKey() {
+  return `${localSubmissionPrefix}:${state.profile.role}:${state.profile.respondentName}`;
 }
 
 function saveLocalSubmission(submission) {
   try {
-    localStorage.setItem(localSubmissionKey(submission.role, submission.respondent_name), JSON.stringify(submission));
+    localStorage.setItem(tokenSubmissionKey(), JSON.stringify(submission));
   } catch {
-    // Local answer review is a convenience; submission itself has already succeeded.
+    // Local answer review is optional; the server submission has already succeeded.
   }
 }
 
-function readLocalSubmission(role, name) {
-  if (!name) return null;
+function readLocalSubmission() {
   try {
-    const value = localStorage.getItem(localSubmissionKey(role, name));
-    return value ? JSON.parse(value) : null;
+    const current = localStorage.getItem(tokenSubmissionKey());
+    if (current) return JSON.parse(current);
+    const legacy = localStorage.getItem(legacySubmissionKey());
+    return legacy ? JSON.parse(legacy) : null;
   } catch {
     return null;
   }
@@ -268,7 +231,6 @@ function readLocalSubmission(role, name) {
 
 function renderOwnAnswer(role, submission) {
   const element = role === "student" ? elements.studentReview : elements.teacherReview;
-  if (!element) return;
   if (!submission) {
     element.innerHTML = "";
     return;
@@ -277,18 +239,9 @@ function renderOwnAnswer(role, submission) {
     <div class="own-answer-title">前回送信した内容</div>
     <table>
       <tbody>
-        <tr>
-          <th>回答日時</th>
-          <td>${formatDate(submission.created_at)}</td>
-        </tr>
-        <tr>
-          <th>可能日時</th>
-          <td>${escapeHtml(formatAvailability(submission) || "なし")}</td>
-        </tr>
-        <tr>
-          <th>補足</th>
-          <td>${escapeHtml(submission.memo ?? "")}</td>
-        </tr>
+        <tr><th>回答日時</th><td>${formatDate(submission.created_at)}</td></tr>
+        <tr><th>可能日時</th><td>${escapeHtml(formatAvailability(submission) || "なし")}</td></tr>
+        <tr><th>補足</th><td>${escapeHtml(submission.memo ?? "")}</td></tr>
       </tbody>
     </table>
   `;
@@ -297,9 +250,7 @@ function renderOwnAnswer(role, submission) {
 function applyStudentSubmission(submission) {
   state.student = new Set(
     (submission.availability ?? []).flatMap((day) =>
-      (day.slots ?? [])
-        .filter((slot) => slot.available)
-        .map((slot) => `${day.day}_${slot.slot}`)
+      (day.slots ?? []).filter((slot) => slot.available).map((slot) => `${day.day}_${slot.slot}`)
     )
   );
   document.querySelector("#studentMemo").value = submission.memo ?? "";
@@ -308,30 +259,19 @@ function applyStudentSubmission(submission) {
 
 function applyTeacherSubmission(submission) {
   state.teacher = new Set(
-    (submission.availability ?? [])
-      .filter((day) => day.available)
-      .map((day) => day.day)
+    (submission.availability ?? []).filter((day) => day.available).map((day) => day.day)
   );
   document.querySelector("#teacherMemo").value = submission.memo ?? "";
   renderTeacherGrid();
 }
 
-function loadOwnStudentAnswer() {
-  const submission = readLocalSubmission("student", elements.studentName.value);
-  if (submission) {
-    applyStudentSubmission(submission);
+function renderProfile(profile) {
+  if (profile.role === "student") {
+    elements.studentIdentityName.textContent = profile.respondentName;
+    elements.studentIdentityGrade.textContent = profile.grade || "学年未設定";
   } else {
-    selectAllStudentSlots();
-    document.querySelector("#studentMemo").value = "";
-    renderStudentGrid();
+    elements.teacherIdentityName.textContent = profile.respondentName;
   }
-  renderOwnAnswer("student", submission);
-}
-
-function loadOwnTeacherAnswer() {
-  const submission = readLocalSubmission("teacher", elements.teacherName.value);
-  if (submission) applyTeacherSubmission(submission);
-  renderOwnAnswer("teacher", submission);
 }
 
 function escapeHtml(value) {
@@ -342,16 +282,6 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-elements.studentGrade.addEventListener("change", () => {
-  renderStudentNameOptions();
-  selectAllStudentSlots();
-  renderStudentGrid();
-  renderOwnAnswer("student", null);
-});
-
-elements.studentName.addEventListener("change", loadOwnStudentAnswer);
-elements.teacherName.addEventListener("change", loadOwnTeacherAnswer);
 
 elements.studentGrid.addEventListener("click", (event) => {
   const key = event.target.dataset.studentSlot;
@@ -372,8 +302,7 @@ elements.teacherGrid.addEventListener("click", (event) => {
 
 elements.studentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const name = elements.studentName.value;
-  const grade = elements.studentGrade.value;
+  const availability = buildStudentAvailability();
   const memo = document.querySelector("#studentMemo").value.trim();
   if (!state.student.size) {
     showStatus("通塾できる日時を1つ以上〇のまま残してください。", "error");
@@ -381,12 +310,16 @@ elements.studentForm.addEventListener("submit", async (event) => {
   }
   showStatus("送信中です...");
   try {
-    const submission = await insertSubmission({ role: "student", respondent_name: name, grade, availability: buildStudentAvailability(), memo });
+    const result = await submitSurvey(availability, memo);
+    const submission = {
+      role: "student",
+      respondent_name: state.profile.respondentName,
+      grade: state.profile.grade,
+      availability,
+      memo,
+      created_at: result.createdAt,
+    };
     saveLocalSubmission(submission);
-    elements.studentForm.reset();
-    renderStudentNameOptions();
-    selectAllStudentSlots();
-    renderStudentGrid();
     renderOwnAnswer("student", submission);
     showStatus("送信しました。");
   } catch (error) {
@@ -396,7 +329,7 @@ elements.studentForm.addEventListener("submit", async (event) => {
 
 elements.teacherForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const name = elements.teacherName.value;
+  const availability = buildTeacherAvailability();
   const memo = document.querySelector("#teacherMemo").value.trim();
   if (!state.teacher.size) {
     showStatus("勤務できる曜日を1つ以上選択してください。", "error");
@@ -404,11 +337,16 @@ elements.teacherForm.addEventListener("submit", async (event) => {
   }
   showStatus("送信中です...");
   try {
-    const submission = await insertSubmission({ role: "teacher", respondent_name: name, grade: null, availability: buildTeacherAvailability(), memo });
+    const result = await submitSurvey(availability, memo);
+    const submission = {
+      role: "teacher",
+      respondent_name: state.profile.respondentName,
+      grade: null,
+      availability,
+      memo,
+      created_at: result.createdAt,
+    };
     saveLocalSubmission(submission);
-    elements.teacherForm.reset();
-    state.teacher.clear();
-    renderTeacherGrid();
     renderOwnAnswer("teacher", submission);
     showStatus("送信しました。");
   } catch (error) {
@@ -416,8 +354,46 @@ elements.teacherForm.addEventListener("submit", async (event) => {
   }
 });
 
-if (state.page === "student") selectAllStudentSlots();
-renderStudentGrid();
-renderTeacherGrid();
-showPage(state.page);
-fetchPeople().catch((error) => showStatus(`名簿を読み込めませんでした。${error.message}`, "error"));
+async function initialize() {
+  selectAllStudentSlots();
+  renderStudentGrid();
+  renderTeacherGrid();
+
+  const queryToken = new URLSearchParams(location.search).get("token")?.trim() || "";
+  const storedToken = sessionStorage.getItem(sessionTokenKey) || "";
+  const token = queryToken || storedToken;
+  if (!tokenPattern.test(token)) {
+    sessionStorage.removeItem(sessionTokenKey);
+    showAccessState("専用URLが必要です", "管理者から案内された回答URLを開いてください。", "error");
+    return;
+  }
+
+  if (queryToken) {
+    sessionStorage.setItem(sessionTokenKey, queryToken);
+    history.replaceState(null, "", location.pathname);
+  }
+
+  state.token = token;
+  state.tokenStorageKey = await sha256Hex(token);
+  showAccessState("回答ページを確認しています", "少しお待ちください。");
+  try {
+    const profile = await fetchProfile(token);
+    if (!profile || !["student", "teacher"].includes(profile.role)) throw new Error("invalid profile");
+    state.profile = profile;
+    renderProfile(profile);
+    showPage(profile.role);
+
+    const localSubmission = readLocalSubmission();
+    if (localSubmission) {
+      if (profile.role === "student") applyStudentSubmission(localSubmission);
+      else applyTeacherSubmission(localSubmission);
+      renderOwnAnswer(profile.role, localSubmission);
+    }
+  } catch {
+    sessionStorage.removeItem(sessionTokenKey);
+    state.token = "";
+    showAccessState("回答ページを開けません", "この回答URLは無効か、期限が切れています。管理者へ連絡してください。", "error");
+  }
+}
+
+initialize();

@@ -1,0 +1,2 @@
+[functions.september-survey-response]
+verify_jwt = false
